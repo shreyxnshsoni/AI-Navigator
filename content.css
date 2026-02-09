@@ -1,0 +1,76 @@
+/* AI Navigator - Content Script Styles */
+
+/* Prevent interference with existing styles */
+#navigator-root {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  z-index: 999999;
+  pointer-events: none;
+}
+
+#navigator-root * {
+  pointer-events: auto;
+}
+
+/* Ensure the navigator doesn't interfere with chat scrolling */
+body {
+  position: relative;
+}
+
+/* Message hover effect - highlight corresponding dot on minimap */
+.navigator-message-hover {
+  transition: background-color 0.2s ease;
+}
+
+.navigator-message-hover:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Animation for welcome tooltip */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth transitions for sidebar */
+.navigator-sidebar {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Minimap dot glow effect on hover */
+.navigator-dot-glow {
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.6));
+  transition: filter 0.2s ease;
+}
+
+/* Grok-style minimap lines */
+.navigator-minimap-line {
+  transition: all 0.2s ease;
+}
+
+.navigator-minimap-line:hover {
+  border-width: 2px !important;
+  opacity: 1 !important;
+}
+
+/* Support for dark/light mode */
+@media (prefers-color-scheme: dark) {
+  #navigator-root {
+    /* Dark mode specific styles if needed */
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  #navigator-root {
+    /* Light mode specific styles if needed */
+  }
+}

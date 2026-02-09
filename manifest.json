@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "AI Chat Navigator",
+  "version": "1.0.0",
+  "description": "Grok-style navigation for AI chats. Transform long conversations into structured, navigable timelines with minimap, sessions, pinning, and search.",
+  "permissions": ["storage", "activeTab"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://x.ai/*"
+      ],
+      "js": [
+        "react.js",
+        "react-dom.js",
+        "platform-config.js",
+        "style-fix.js",
+        "content.js",
+        "sidebar.js"
+      ],
+      "css": ["content.css"],
+      "run_at": "document_end"
+    }
+  ]
+}
