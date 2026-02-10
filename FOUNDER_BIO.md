@@ -30,7 +30,7 @@ The breaking point came one evening when I spent 15 minutes scrolling through a 
 
 As a student, I didn't have budget for cloud infrastructure, APIs, or servers. But I had something better: a clear problem and the skills to solve it.
 
-I built AI Navigator over a single weekend using:
+I built AI Navigator over a single weekend using:git push -u origin main
 - **Shadow DOM** for style isolation
 - **Local storage** for persistence
 - **Browser APIs** for everything else

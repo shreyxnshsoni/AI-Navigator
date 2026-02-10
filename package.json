@@ -4,7 +4,8 @@
   "description": "Transform long AI chats into structured, navigable timelines. Privacy-first browser extension.",
   "scripts": {
     "build": "echo 'Build script - add your build process here'",
-    "package": "zip -r ai-navigator.zip . -x '*.git*' 'node_modules/*' '*.zip'"
+    "package": "zip -r ai-navigator.zip . -x '*.git*' 'node_modules/*' '*.zip'",
+    "validate:minimap": "node validate-minimap.js"
   },
   "keywords": [
     "chrome-extension",
@@ -15,5 +16,8 @@
     "navigation"
   ],
   "author": "Shreyansh Soni",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "puppeteer": "^24.37.2"
+  }
 }

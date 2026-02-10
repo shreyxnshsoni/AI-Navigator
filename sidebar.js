@@ -15,14 +15,169 @@
     const [hoveredArrow, setHoveredArrow] = React.useState(null);
     const [hoverPreview, setHoverPreview] = React.useState(null);
     const [hoverPosition, setHoverPosition] = React.useState({ top: 0 });
+    const timestampCacheRef = React.useRef({});
 
-    // Load messages from chrome.storage.local
+    const formatTimestamp = (raw) => {
+      if (!raw) return '';
+      try {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          const now = new Date();
+          let hours = d.getHours();
+          const minutes = d.getMinutes().toString().padStart(2, '0');
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          hours = hours % 12 || 12;
+          const timePart = `${hours}:${minutes} ${ampm}`;
+
+          const sameDay =
+            d.getFullYear() === now.getFullYear() &&
+            d.getMonth() === now.getMonth() &&
+            d.getDate() === now.getDate();
+
+          if (sameDay) {
+            return timePart;
+          }
+
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const datePart = `${months[d.getMonth()]} ${d.getDate()}`;
+          return `${datePart}, ${timePart}`;
+        }
+      } catch (e) {
+        // fall through and return raw
+      }
+      return String(raw);
+    };
+
+    // Helper: deep DOM traversal that can see into shadow roots
+    const deepFind = (matchFn) => {
+      const visited = new Set();
+      const queue = [];
+      queue.push(document);
+
+      while (queue.length) {
+        const node = queue.shift();
+        if (!node || visited.has(node)) continue;
+        visited.add(node);
+
+        if (node.nodeType === 1) {
+          const el = /** @type {Element} */ (node);
+          if (matchFn(el)) {
+            return el;
+          }
+
+          // Enqueue shadow root if present
+          if (el.shadowRoot) {
+            queue.push(el.shadowRoot);
+          }
+        }
+
+        // Enqueue children (for both Document, ShadowRoot, and Element)
+        const children = node.children || node.childNodes;
+        if (children) {
+          for (let i = 0; i < children.length; i++) {
+            queue.push(children[i]);
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const findMessageNodeDeep = (messageId, type) => {
+      if (!messageId) return null;
+
+      const roleSelector = type === 'user' ? 'user' : 'assistant';
+
+      // First try role-scoped selector
+      const primary = deepFind((el) => {
+        const idAttr = el.getAttribute && el.getAttribute('data-message-id');
+        const roleAttr = el.getAttribute && el.getAttribute('data-message-author-role');
+        return idAttr === String(messageId) && roleAttr === roleSelector;
+      });
+      if (primary) return primary;
+
+      // Fallback: any element with matching data-message-id
+      const fallback = deepFind((el) => {
+        const idAttr = el.getAttribute && el.getAttribute('data-message-id');
+        return idAttr === String(messageId);
+      });
+      return fallback;
+    };
+
+    // Normalize a raw message into our internal shape with a strong type field and timestamp.
+    // Type is bound 1:1 to the DOM role at the same index.
+    const normalizeMessage = (raw, index, bubbles) => {
+      if (!raw || typeof raw !== 'object') return raw;
+
+      // Force type from [data-message-author-role] at the same index
+      let derivedType = 'ai';
+      if (Array.isArray(bubbles) && index >= 0 && index < bubbles.length) {
+        const roleAttr = bubbles[index]?.getAttribute?.('data-message-author-role');
+        if (roleAttr === 'user') {
+          derivedType = 'user';
+        } else if (roleAttr === 'assistant') {
+          derivedType = 'ai';
+        }
+      }
+
+      // Timestamp: prefer existing value, otherwise derive from DOM or use current time
+      let ts = raw.timestamp || raw.time || raw.createdAt;
+      const cache = timestampCacheRef.current || {};
+
+      if (!ts && raw.id && cache[raw.id]) {
+        ts = cache[raw.id];
+      }
+
+      if (!ts && raw.id) {
+        try {
+          const node = findMessageNodeDeep(raw.id, derivedType);
+          if (node) {
+            const timeEl = node.querySelector && node.querySelector('time');
+            const rawTs = timeEl
+              ? (timeEl.getAttribute('datetime') || timeEl.getAttribute('title') || timeEl.textContent)
+              : '';
+            if (rawTs && rawTs.trim()) {
+              ts = rawTs.trim();
+            }
+          }
+        } catch (e) {
+          // ignore and fall back to now
+        }
+      }
+
+      if (!ts) {
+        ts = new Date().toISOString();
+      }
+
+      if (raw.id) {
+        cache[raw.id] = ts;
+        timestampCacheRef.current = cache;
+      }
+
+      return {
+        ...raw,
+        type: derivedType,
+        timestamp: ts
+      };
+    };
+
+    const normalizeMessagesArray = (arr) => {
+      if (!Array.isArray(arr)) return [];
+      const bubbles = Array.from(document.querySelectorAll('[data-message-author-role]'));
+      return arr.map((msg, index) => normalizeMessage(msg, index, bubbles));
+    };
+
+    // Load messages from chrome.storage.local and keep them refreshed
     React.useEffect(() => {
       const loadData = () => {
         chrome.storage.local.get(['messagesData'], (result) => {
           if (result.messagesData && result.messagesData.length > 0) {
-            setMessagesData(result.messagesData);
-            setCurrentMessageIndex(result.messagesData.length - 1);
+            const normalized = normalizeMessagesArray(result.messagesData);
+            setMessagesData(normalized);
+            setCurrentMessageIndex(normalized.length - 1);
+          } else {
+            setMessagesData([]);
+            setCurrentMessageIndex(0);
           }
         });
       };
@@ -33,24 +188,44 @@
       // Listen for storage updates
       const listener = (changes) => {
         if (changes.messagesData) {
-          setMessagesData(changes.messagesData.newValue || []);
-          setCurrentMessageIndex(changes.messagesData.newValue?.length - 1 || 0);
+          const next = normalizeMessagesArray(changes.messagesData.newValue || []);
+          setMessagesData(next);
+          setCurrentMessageIndex(next.length - 1 || 0);
         }
       };
 
       chrome.storage.onChanged.addListener(listener);
-      return () => chrome.storage.onChanged.removeListener(listener);
+      // Periodic refresh to stay in sync with live DOM scraper
+      const intervalId = setInterval(loadData, 2000);
+
+      return () => {
+        chrome.storage.onChanged.removeListener(listener);
+        clearInterval(intervalId);
+      };
     }, []);
 
-    // Handle line click - scroll to message
+    // Handle line click - scroll to message using DOM lookup by data-message-id
     const handleLineClick = (messageId) => {
-      // Send message to content script to scroll with precision snap
-      window.postMessage({
-        type: 'SCROLL_TO_MESSAGE',
-        messageId: messageId,
-        block: 'start',
-        offset: -100
-      }, '*');
+      try {
+        if (!messageId) return;
+
+        const message = messagesData.find(m => m.id === messageId);
+        const target = findMessageNodeDeep(messageId, message ? message.type : undefined);
+
+        if (target && typeof target.scrollIntoView === 'function') {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+
+          // Apply offset so the message is not hidden under the top nav
+          setTimeout(() => {
+            window.scrollBy(0, -84);
+          }, 300);
+        }
+      } catch (err) {
+        console.error('AI Navigator: failed to scroll to message', err);
+      }
 
       // Update current message index
       const msgIndex = messagesData.findIndex(m => m.id === messageId);
@@ -84,10 +259,8 @@
       }
     };
 
-    // Lifecycle Visibility: Hide minimap if less than 4 messages
-    if (messagesData.length < 4) {
-      return null;
-    }
+    // Visibility threshold: hide minimap UI when fewer than 4 messages
+    const showMinimap = messagesData.length >= 4;
 
     // Render the minimap lines
     const renderMinimapLines = () => {
@@ -96,10 +269,7 @@
       return visibleMessages.map((message, index) => {
         const isCurrent = messagesData.indexOf(message) === currentMessageIndex;
         const isHovered = hoveredLineId === message.id;
-        const isUser = message.role === 'user';
-        
-        // Get message preview text
-        const previewText = message.text ? message.text.substring(0, 100) : 'Message';
+        const isUser = message.type === 'user';
         
         return React.createElement('div', {
           key: message.id,
@@ -107,10 +277,63 @@
           onClick: () => handleLineClick(message.id),
           onMouseEnter: (e) => {
             setHoveredLineId(message.id);
+
+            // Scrape live DOM text for preview using role-ordered bubbles and a strict 10-word cap.
+            let previewText = 'Message';
+            let previewTimestamp = '';
+            try {
+              // Find the global index of this message in the full messages array
+              const globalIndex = messagesData.findIndex(m => m.id === message.id);
+              const allBubbles = Array.from(document.querySelectorAll('[data-message-author-role]'));
+
+              let bubble = null;
+              if (globalIndex >= 0 && globalIndex < allBubbles.length) {
+                bubble = allBubbles[globalIndex];
+              }
+
+              if (bubble) {
+                const sourceNode =
+                  bubble.querySelector('.markdown') ||
+                  bubble;
+
+                const rawText = (sourceNode.innerText || sourceNode.textContent || '').trim();
+                if (rawText) {
+                  const words = rawText.split(/\s+/);
+                  previewText = words.slice(0, 10).join(' ') + (words.length > 10 ? '...' : '');
+                }
+
+                const timeEl = bubble.querySelector('time');
+                const rawTs = timeEl
+                  ? (timeEl.getAttribute('datetime') || timeEl.getAttribute('title') || timeEl.textContent)
+                  : (message.timestamp || message.time || message.createdAt || '');
+                if (rawTs) {
+                  previewTimestamp = formatTimestamp(rawTs.trim());
+                }
+              } else if (message.text) {
+                const rawText = message.text.trim();
+                const words = rawText.split(/\s+/);
+                previewText = words.slice(0, 10).join(' ') + (words.length > 10 ? '...' : '');
+                if (message.timestamp || message.time || message.createdAt) {
+                  previewTimestamp = formatTimestamp(message.timestamp || message.time || message.createdAt);
+                }
+              }
+            } catch (err) {
+              if (message.text) {
+                const rawText = message.text.trim();
+                const words = rawText.split(/\s+/);
+                previewText = words.slice(0, 10).join(' ') + (words.length > 10 ? '...' : '');
+                if (message.timestamp || message.time || message.createdAt) {
+                  previewTimestamp = formatTimestamp(message.timestamp || message.time || message.createdAt);
+                }
+              }
+            }
+
             setHoverPreview({
-              type: message.role,
-              text: previewText
+              type: message.type,
+              text: previewText,
+              timestamp: previewTimestamp
             });
+
             // Calculate tooltip position
             const rect = e.currentTarget.getBoundingClientRect();
             setHoverPosition({ top: rect.top + rect.height / 2 });
@@ -118,16 +341,6 @@
           onMouseLeave: () => {
             setHoveredLineId(null);
             setHoverPreview(null);
-          },
-          style: {
-            width: isHovered ? '22px' : (isUser ? '6px' : '14px'),
-            height: '2px',
-            backgroundColor: isHovered || isCurrent ? '#ffffff' : 'rgba(255, 255, 255, 0.3)',
-            boxShadow: isHovered ? '0 0 8px rgba(255, 255, 255, 1)' : 'none',
-            transition: 'all 0.2s ease',
-            pointerEvents: 'auto',
-            position: 'relative',
-            borderRadius: '4px'
           }
         });
       });
@@ -190,28 +403,14 @@
 
     return React.createElement('div', {
       id: 'sidebar-root',
-      className: 'minimap-container',
+      className: `minimap-container${showMinimap ? '' : ' minimap-hidden'}`,
       style: {
         pointerEvents: 'none'
       }
     },
-      // Minimap Track - Vertical strip on far right with uniform spacing
-      React.createElement('div', {
-        className: 'minimap-track',
-        style: {
-          position: 'fixed',
-          top: 0,
-          right: '20px',
-          width: '40px',
-          height: '100vh',
-          background: 'transparent',
-          pointerEvents: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-          gap: '12px'
-        }
+      // Minimap Track - only render when visibility threshold is met
+      showMinimap && React.createElement('div', {
+        className: 'minimap-track'
       },
         // Up Arrow (only when messages > 20 and a line is hovered)
         showArrows && renderArrow('up', 'Previous response'),
@@ -224,29 +423,26 @@
       hoverPreview && hoveredLineId && React.createElement('div', {
         className: 'hover-preview',
         style: {
-          position: 'fixed',
-          top: `${hoverPosition.top}px`,
-          right: '50px',
-          pointerEvents: 'auto',
-          transform: 'translateY(-50%)',
-          zIndex: 2147483647
+          top: `${hoverPosition.top}px`
         }
       },
         React.createElement('div', {
-          style: {
-            marginBottom: '6px',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: hoverPreview.type === 'user' ? 'rgba(255, 255, 255, 0.8)' : '#00f2ff'
-          }
-        }, hoverPreview.type === 'user' ? 'You' : 'AI'),
-        React.createElement('div', {
-          style: {
-            fontSize: '12px',
-            lineHeight: 1.5,
-            color: 'rgba(255, 255, 255, 0.95)'
-          }
-        }, hoverPreview.text)
+          className: `hover-preview-box`
+        },
+          React.createElement('div', {
+            className: `preview-header ${hoverPreview.type === 'user' ? 'user' : 'ai'}`
+          },
+            hoverPreview.type === 'user' ? 'You' : 'AI',
+            hoverPreview.timestamp
+              ? React.createElement('span', {
+                  className: 'preview-timestamp'
+                }, hoverPreview.timestamp)
+              : null
+          ),
+          React.createElement('div', {
+            className: 'preview-body'
+          }, hoverPreview.text)
+        )
       )
     );
   }

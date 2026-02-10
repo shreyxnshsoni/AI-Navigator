@@ -7,6 +7,14 @@ const NAVIGATOR_STYLES = `
     padding: 0;
   }
 
+  :root {
+    --navigator-right-offset: 22px;
+    --navigator-line-gap: 12px;
+    --navigator-ai-line-width: 11px;
+    --navigator-user-line-width: 5px;
+    --navigator-line-thickness: 1px;
+  }
+
   #navigator-root {
     position: fixed;
     top: 0;
@@ -35,7 +43,7 @@ const NAVIGATOR_STYLES = `
   .minimap-container {
     position: fixed;
     top: 0;
-    right: 0;
+    right: 22px !important;
     width: 60px;
     height: 100vh;
     background: transparent;
@@ -44,34 +52,38 @@ const NAVIGATOR_STYLES = `
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding-right: 20px;
+    padding-right: 0;
+  }
+
+  .minimap-container.minimap-hidden {
+    display: none !important;
   }
 
   /* Minimap Track - Thin vertical strip with flex layout */
   .minimap-track {
     position: fixed;
     top: 0;
-    right: 20px;
+    right: 22px !important;
     width: 40px;
     height: 100vh;
-    background: transparent;
-    pointer-events: auto;
+  background: transparent;
+  pointer-events: auto !important;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
     justify-content: center;
-    gap: 12px;
+    gap: 12px !important;
     overflow: visible;
     padding: 20px 0;
   }
 
   /* Minimap Line (Grok-style horizontal lines) */
   .minimap-line {
-    height: 2px;
+    height: 2px !important;
     cursor: pointer;
     transition: all 0.2s ease;
-    border-radius: 4px;
-    pointer-events: auto;
+    border-radius: 2px;
+  pointer-events: auto !important;
     flex-shrink: 0;
     background: rgba(255, 255, 255, 0.3);
     position: relative;
@@ -91,45 +103,44 @@ const NAVIGATOR_STYLES = `
     z-index: 2;
   }
 
-  /* User lines - 6px wide */
+  /* User lines */
   .minimap-line.user {
-    width: 6px;
+    width: 5px !important;
   }
 
-  /* AI lines - 14px wide */
+  /* AI lines */
   .minimap-line.ai {
-    width: 14px;
+    width: 11px !important;
   }
 
   /* Hover State - Triggered when mouse enters invisible hitbox or visible line */
   .minimap-line:hover {
     background: #ffffff !important;
-    width: 22px !important;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 1) !important;
+    width: 17px !important;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
     cursor: pointer;
   }
 
   .minimap-line.pinned {
-    background: rgba(255, 215, 0, 0.6);
-    box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+    background: rgba(255, 215, 0, 0.8);
+    box-shadow: 0 0 5px rgba(255, 215, 0, 0.8);
   }
 
   .minimap-line.pinned:hover {
     background: #ffffff !important;
-    width: 22px !important;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 1) !important;
+    width: 17px !important;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
   }
 
   .minimap-line.highlighted {
     background: rgba(255, 255, 255, 0.8);
-    width: 20px;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.6);
   }
 
   .minimap-line.highlighted:hover {
     background: #ffffff !important;
-    width: 22px !important;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 1) !important;
+    width: 17px !important;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
   }
 
   /* Minimap Arrows */
@@ -186,22 +197,51 @@ const NAVIGATOR_STYLES = `
     height: 12px;
   }
 
-  /* Hover Preview Tooltip - Follows cursor vertically */
+  /* Hover Preview Tooltip - Follows cursor vertically (positioning wrapper) */
   .hover-preview {
     position: fixed;
     right: 50px;
-    padding: 10px 14px;
-    background: rgba(20, 20, 20, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: rgba(255, 255, 255, 0.95);
-    font-size: 12px;
-    line-height: 1.5;
-    max-width: 250px;
+    pointer-events: auto;
+    transform: translateY(-50%);
+    z-index: 2147483647 !important;
+  }
+
+  /* Grok-style preview box */
+  .hover-preview-box {
+    background: #222222;
+    border-radius: 12px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    max-width: 260px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+
+  .preview-header {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+
+  .preview-header.user {
+    color: #ffffff;
+  }
+
+  .preview-header.ai {
+    color: #8E8E93;
+  }
+
+  .preview-body {
+    color: #ffffff;
+    font-size: 14px;
+    line-height: 1.4;
     white-space: normal;
     word-wrap: break-word;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
-    pointer-events: auto;
-    z-index: 2147483647;
+  }
+
+  .preview-timestamp {
+    margin-left: 8px;
+    font-size: 11px;
+    color: #8E8E93;
+    font-weight: 400;
   }
 `;
