@@ -12,7 +12,7 @@ const NAVIGATOR_STYLES = `
     --navigator-line-gap: 12px;
     --navigator-ai-line-width: 11px;
     --navigator-user-line-width: 5px;
-    --navigator-line-thickness: 1px;
+    --navigator-line-thickness: 2px;
   }
 
   #navigator-root {
@@ -59,25 +59,25 @@ const NAVIGATOR_STYLES = `
     display: none !important;
   }
 
-  /* Minimap Track - Thin vertical strip with flex layout */
+  /* Minimap Track - Flush right, lines grow left. Layout lockdown. */
   .minimap-track {
     position: fixed;
     top: 0;
     right: 22px !important;
     width: 40px;
     height: 100vh;
-  background: transparent;
-  pointer-events: auto !important;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    background: transparent;
+    pointer-events: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
     justify-content: center;
     gap: 12px !important;
     overflow: visible;
     padding: 20px 0;
   }
 
-  /* Minimap Line (Grok-style horizontal lines) */
+  /* Minimap Line - 2px thickness, 22px offset, 12px gap (tracking spec) */
   .minimap-line {
     height: 2px !important;
     cursor: pointer;
@@ -103,24 +103,6 @@ const NAVIGATOR_STYLES = `
     z-index: 2;
   }
 
-  /* User lines */
-  .minimap-line.user {
-    width: 5px !important;
-  }
-
-  /* AI lines */
-  .minimap-line.ai {
-    width: 11px !important;
-  }
-
-  /* Hover State - Triggered when mouse enters invisible hitbox or visible line */
-  .minimap-line:hover {
-    background: #ffffff !important;
-    width: 17px !important;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
-    cursor: pointer;
-  }
-
   .minimap-line.pinned {
     background: rgba(255, 215, 0, 0.8);
     box-shadow: 0 0 5px rgba(255, 215, 0, 0.8);
@@ -143,42 +125,40 @@ const NAVIGATOR_STYLES = `
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.8) !important;
   }
 
-  /* Minimap Arrows */
+  /* Minimap Arrows - Scroll indicators */
   .minimap-arrow {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    background: rgba(30, 30, 40, 0.8);
-    border: 1px solid rgba(0, 242, 255, 0.3);
+    justify-content: flex-end;
     position: relative;
     z-index: 2147483647;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease;
     pointer-events: auto !important;
-    color: #00f2ff;
-    opacity: 0;
+    color: #8E8E93;
+    flex-shrink: 0;
   }
 
   .minimap-arrow:hover {
-    opacity: 1 !important;
-    background: rgba(30, 30, 40, 0.95);
-    border-color: #00f2ff;
-    box-shadow: 0 0 12px rgba(0, 242, 255, 0.6);
-    transform: scale(1.1);
+    color: #FFFFFF !important;
+  }
+
+  .minimap-arrow svg {
+    width: 16px;
+    height: 16px;
   }
 
   /* Arrow Tooltip */
   .arrow-tooltip {
     position: absolute;
-    right: 30px;
+    right: 22px;
     top: 50%;
     transform: translateY(-50%);
     padding: 6px 10px;
     background: rgba(20, 20, 30, 0.95);
-    border: 1px solid rgba(0, 242, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 6px;
     color: #ffffff;
     font-size: 11px;
@@ -186,15 +166,7 @@ const NAVIGATOR_STYLES = `
     white-space: nowrap;
     pointer-events: none;
     z-index: 2147483647;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 242, 255, 0.4);
-    transition: all 0.2s ease;
-    backdrop-filter: blur(4px);
-    text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-  }
-
-  .minimap-arrow svg {
-    width: 12px;
-    height: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
   }
 
   /* Hover Preview Tooltip - Follows cursor vertically (positioning wrapper) */
@@ -243,5 +215,24 @@ const NAVIGATOR_STYLES = `
     font-size: 11px;
     color: #8E8E93;
     font-weight: 400;
+  }
+
+  /* High-Specificity DNA Lockdown - win over ChatGPT globals */
+  #sidebar-root .minimap-track .minimap-line.user-line {
+    width: 5px !important;
+    height: 2px !important;
+    background-color: #ffffff !important;
+  }
+
+  #sidebar-root .minimap-track .minimap-line.ai-line {
+    width: 11px !important;
+    height: 2px !important;
+    background-color: #8E8E93 !important;
+  }
+
+  /* Expansion on hover - both types grow to 17px */
+  #sidebar-root .minimap-track .minimap-line:hover {
+    width: 17px !important;
+    background-color: #ffffff !important;
   }
 `;

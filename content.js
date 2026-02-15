@@ -395,34 +395,53 @@ const findMessages = () => {
     console.log(`📚 Grouped into ${sessions.length} sessions.`);
     
     // Load existing session titles (user may have renamed them)
-    chrome.storage.local.get(['sessionTitles'], (existing) => {
-      const sessionTitles = existing.sessionTitles || {};
-      
-      // Merge with existing titles
-      sessions.forEach(session => {
-        if (sessionTitles[session.id]) {
-          session.title = sessionTitles[session.id];
+    try {
+      if (!chrome.runtime?.id) return;
+      chrome.storage.local.get(['sessionTitles'], (existing) => {
+        try {
+          if (!chrome.runtime?.id) return;
+          if (chrome.runtime.lastError) {
+            console.warn('Context invalidated, skipping update.');
+            return;
+          }
+          const sessionTitles = existing.sessionTitles || {};
+          
+          // Merge with existing titles
+          sessions.forEach(session => {
+            if (sessionTitles[session.id]) {
+              session.title = sessionTitles[session.id];
+            }
+          });
+          
+          // Store detailed message data with sessions
+          if (!chrome.runtime?.id) return;
+          chrome.storage.local.set({ 
+            messageCount: count,
+            platform: platform,
+            messagesData: messagesData.map(msg => ({
+              id: msg.id,
+              offset: msg.offset,
+              type: msg.type,
+              index: msg.index,
+              timestamp: msg.timestamp,
+              textContent: msg.textContent // Include text for search
+            })), // Store without element references (not serializable)
+            sessions: sessions,
+            sessionBreaks: sessionBreaks,
+            containerHeight: containerHeight,
+            lastUpdate: Date.now()
+          }, () => {
+            if (chrome.runtime.lastError) {
+              console.warn('Context invalidated, skipping update.');
+            }
+          });
+        } catch (e) {
+          // Extension context invalidated
         }
       });
-      
-      // Store detailed message data with sessions
-      chrome.storage.local.set({ 
-        messageCount: count,
-        platform: platform,
-        messagesData: messagesData.map(msg => ({
-          id: msg.id,
-          offset: msg.offset,
-          type: msg.type,
-          index: msg.index,
-          timestamp: msg.timestamp,
-          textContent: msg.textContent // Include text for search
-        })), // Store without element references (not serializable)
-        sessions: sessions,
-        sessionBreaks: sessionBreaks,
-        containerHeight: containerHeight,
-        lastUpdate: Date.now()
-      });
-    });
+    } catch (e) {
+      // Extension context invalidated
+    }
     
     // Store element references in a Map for scrolling (not in storage)
     if (!window.navigatorMessageElements) {
@@ -666,8 +685,16 @@ function createPinButton(messageId, isPinned, platform) {
 
 // Function to handle pin toggle
 function handlePinToggle(messageId, button, platform) {
-  chrome.storage.local.get(['pinnedMessages'], (result) => {
-    const pinnedMessages = result.pinnedMessages || {};
+  try {
+    if (!chrome.runtime?.id) return;
+    chrome.storage.local.get(['pinnedMessages'], (result) => {
+      try {
+        if (!chrome.runtime?.id) return;
+        if (chrome.runtime.lastError) {
+          console.warn('Context invalidated, skipping update.');
+          return;
+        }
+        const pinnedMessages = result.pinnedMessages || {};
     const isCurrentlyPinned = pinnedMessages[messageId] !== undefined;
     
     if (isCurrentlyPinned) {
@@ -705,14 +732,33 @@ function handlePinToggle(messageId, button, platform) {
     }
     
     // Save to storage
-    chrome.storage.local.set({ pinnedMessages: pinnedMessages });
-  });
+    if (!chrome.runtime?.id) return;
+    chrome.storage.local.set({ pinnedMessages: pinnedMessages }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('Context invalidated, skipping update.');
+      }
+    });
+      } catch (e) {
+        // Extension context invalidated
+      }
+    });
+  } catch (e) {
+    // Extension context invalidated
+  }
 }
 
 // Function to inject pin buttons into messages
 function injectPinButtons(messagesData, platform) {
-  chrome.storage.local.get(['pinnedMessages'], (result) => {
-    const pinnedMessages = result.pinnedMessages || {};
+  try {
+    if (!chrome.runtime?.id) return;
+    chrome.storage.local.get(['pinnedMessages'], (result) => {
+      try {
+        if (!chrome.runtime?.id) return;
+        if (chrome.runtime.lastError) {
+          console.warn('Context invalidated, skipping update.');
+          return;
+        }
+        const pinnedMessages = result.pinnedMessages || {};
     
     messagesData.forEach((msg) => {
       const element = msg.element;
@@ -741,7 +787,13 @@ function injectPinButtons(messagesData, platform) {
         pinButton.style.opacity = isPinned ? '1' : '0.7';
       }
     });
-  });
+      } catch (e) {
+        // Extension context invalidated
+      }
+    });
+  } catch (e) {
+    // Extension context invalidated
+  }
 }
 
 // Function to handle scroll-to-message requests from sidebar
